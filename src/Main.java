@@ -37,7 +37,17 @@ public class Main {
             return;
         }
 
+        double[] samples;
+
+        try {
+            samples = StdAudio.read(fileName);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Could not read the audio file.");
+            return;
+        }
+
         System.out.println("Filename: " + fileName);
         System.out.println("Bars: " + barCount);
+        System.out.println("Total samples: " + samples.length);
     }
 }
