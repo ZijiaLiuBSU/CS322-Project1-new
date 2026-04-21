@@ -1,4 +1,8 @@
 import javax.swing.JOptionPane;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class Main {
     public static void main(String[] args) {
@@ -19,15 +23,26 @@ public class Main {
             return;
         }
 
-        String[] parts = input.split("\\s+");
+        String[] parts = splitInput(input);
 
-        if (parts.length != 2) {
+        if (parts == null) {
             System.out.println("Please enter exactly a filename and a number of bars.");
             return;
         }
 
         String fileName = parts[0];
         String barText = parts[1];
+
+        if (containsBlockedText(fileName) || containsBlockedText(barText)) {
+            System.out.println("Blocked unsafe input.");
+            return;
+        }
+
+        Path filePath = validateFilePath(fileName);
+        if (filePath == null) {
+            return;
+        }
+
         int barCount;
 
         try {
@@ -40,7 +55,7 @@ public class Main {
         double[] samples;
 
         try {
-            samples = StdAudio.read(fileName);
+            samples = StdAudio.read(filePath.toString());
         } catch (IllegalArgumentException e) {
             System.out.println("Could not read the audio file.");
             return;
@@ -57,7 +72,79 @@ public class Main {
         }
 
         double[] heights = buildBars(samples, barCount);
-        playAndDraw(fileName, heights, samples.length);
+        playAndDraw(filePath.toString(), heights, samples.length);
+    }
+
+    private static String[] splitInput(String input) {
+        int splitIndex = -1;
+
+        for (int i = input.length() - 1; i >= 0; i--) {
+            if (Character.isWhitespace(input.charAt(i))) {
+                splitIndex = i;
+                break;
+            }
+        }
+
+        if (splitIndex == -1) {
+            return null;
+        }
+
+        String fileName = input.substring(0, splitIndex).trim();
+        String barText = input.substring(splitIndex + 1).trim();
+
+        if (fileName.length() == 0 || barText.length() == 0) {
+            return null;
+        }
+
+        if (barText.contains(" ") || barText.contains("\t")) {
+            return null;
+        }
+
+        return new String[]{fileName, barText};
+    }
+
+    private static boolean containsBlockedText(String text) {
+        return text.contains("..")
+                || text.contains("|")
+                || text.contains("&")
+                || text.contains(";")
+                || text.contains(">")
+                || text.contains("<")
+                || text.contains("`");
+    }
+
+    private static Path validateFilePath(String fileName) {
+        if (!fileName.toLowerCase().endsWith(".wav")) {
+            System.out.println("Only .wav files are allowed.");
+            return null;
+        }
+
+        try {
+            Path basePath = Paths.get("").toAbsolutePath().normalize();
+            Path inputPath = Paths.get(fileName);
+
+            if (inputPath.isAbsolute()) {
+                System.out.println("Absolute paths are not allowed.");
+                return null;
+            }
+
+            Path fullPath = basePath.resolve(inputPath).normalize();
+
+            if (!fullPath.startsWith(basePath)) {
+                System.out.println("Paths outside the project are not allowed.");
+                return null;
+            }
+
+            if (!Files.exists(fullPath) || !Files.isRegularFile(fullPath)) {
+                System.out.println("The file does not exist.");
+                return null;
+            }
+
+            return fullPath;
+        } catch (InvalidPathException e) {
+            System.out.println("The filename is not valid.");
+            return null;
+        }
     }
 
     private static double[] buildBars(double[] samples, int barCount) {
