@@ -52,12 +52,8 @@ public class Main {
             return;
         }
 
-        double[] samples;
-
-        try {
-            samples = StdAudio.read(filePath.toString());
-        } catch (IllegalArgumentException e) {
-            System.out.println("Could not read the audio file.");
+        double[] samples = readSamples(filePath.toString());
+        if (samples == null) {
             return;
         }
 
@@ -145,6 +141,36 @@ public class Main {
             System.out.println("The filename is not valid.");
             return null;
         }
+    }
+
+    private static double[] readSamples(String fileName) {
+        double[] samples;
+
+        try {
+            samples = StdAudio.read(fileName);
+        } catch (Exception e) {
+            System.out.println("The file could not be read as a valid wav file.");
+            return null;
+        }
+
+        if (samples == null || samples.length == 0) {
+            System.out.println("The sound file is empty or invalid.");
+            return null;
+        }
+
+        for (double sample : samples) {
+            if (Double.isNaN(sample) || Double.isInfinite(sample)) {
+                System.out.println("The sound file contains invalid sample values.");
+                return null;
+            }
+
+            if (sample < -1.0 || sample > 1.0) {
+                System.out.println("The sound file contains invalid sample values.");
+                return null;
+            }
+        }
+
+        return samples;
     }
 
     private static double[] buildBars(double[] samples, int barCount) {
