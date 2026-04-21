@@ -46,8 +46,48 @@ public class Main {
             return;
         }
 
+        if (barCount <= 0) {
+            System.out.println("The number of bars must be greater than 0.");
+            return;
+        }
+
+        if (barCount > samples.length) {
+            System.out.println("The number of bars is too large for this sound file.");
+            return;
+        }
+
+        double[] heights = buildBars(samples, barCount);
+
         System.out.println("Filename: " + fileName);
         System.out.println("Bars: " + barCount);
         System.out.println("Total samples: " + samples.length);
+        System.out.println("Calculated bars: " + heights.length);
+
+        int limit = Math.min(10, heights.length);
+        for (int i = 0; i < limit; i++) {
+            System.out.println("Bar " + i + ": " + heights[i]);
+        }
+    }
+
+    private static double[] buildBars(double[] samples, int barCount) {
+        int groupSize = samples.length / barCount;
+        double[] heights = new double[barCount];
+        int index = 0;
+
+        for (int i = 0; i < barCount; i++) {
+            double max = 0.0;
+
+            for (int j = 0; j < groupSize; j++) {
+                double value = Math.abs(samples[index]);
+                if (value > max) {
+                    max = value;
+                }
+                index++;
+            }
+
+            heights[i] = max;
+        }
+
+        return heights;
     }
 }
