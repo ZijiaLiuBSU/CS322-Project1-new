@@ -57,16 +57,7 @@ public class Main {
         }
 
         double[] heights = buildBars(samples, barCount);
-
-        System.out.println("Filename: " + fileName);
-        System.out.println("Bars: " + barCount);
-        System.out.println("Total samples: " + samples.length);
-        System.out.println("Calculated bars: " + heights.length);
-
-        int limit = Math.min(10, heights.length);
-        for (int i = 0; i < limit; i++) {
-            System.out.println("Bar " + i + ": " + heights[i]);
-        }
+        playAndDraw(fileName, heights, samples.length);
     }
 
     private static double[] buildBars(double[] samples, int barCount) {
@@ -89,5 +80,59 @@ public class Main {
         }
 
         return heights;
+    }
+
+    private static void playAndDraw(String fileName, double[] heights, int sampleCount) {
+        StdDraw.setCanvasSize(1400, 350);
+        StdDraw.setTitle("File: " + fileName);
+        StdDraw.setXscale(0, heights.length);
+        StdDraw.setYscale(-1.2, 1.2);
+        StdDraw.enableDoubleBuffering();
+        StdDraw.setPenRadius(0.003);
+
+        int groupSize = sampleCount / heights.length;
+        int pauseTime = (int) ((groupSize * 1000.0) / StdAudio.SAMPLE_RATE);
+
+        if (pauseTime < 1) {
+            pauseTime = 1;
+        }
+
+        StdAudio.playInBackground(fileName);
+
+        for (int i = 0; i < heights.length; i++) {
+            StdDraw.clear();
+
+            StdDraw.setPenColor(StdDraw.BLACK);
+            StdDraw.text(heights.length / 2.0, 1.0, "File: " + fileName);
+            StdDraw.line(0, 0.72, heights.length, 0.72);
+
+            for (int j = 0; j <= i; j++) {
+                setBarColor(j);
+                double x = j + 0.5;
+                double height = heights[j] * 0.45;
+                StdDraw.line(x, -height, x, height);
+            }
+
+            StdDraw.show();
+            StdDraw.pause(pauseTime);
+        }
+    }
+
+    private static void setBarColor(int index) {
+        int colorIndex = index % 6;
+
+        if (colorIndex == 0) {
+            StdDraw.setPenColor(StdDraw.RED);
+        } else if (colorIndex == 1) {
+            StdDraw.setPenColor(StdDraw.ORANGE);
+        } else if (colorIndex == 2) {
+            StdDraw.setPenColor(StdDraw.GREEN);
+        } else if (colorIndex == 3) {
+            StdDraw.setPenColor(StdDraw.BLUE);
+        } else if (colorIndex == 4) {
+            StdDraw.setPenColor(StdDraw.MAGENTA);
+        } else {
+            StdDraw.setPenColor(StdDraw.BOOK_LIGHT_BLUE);
+        }
     }
 }
