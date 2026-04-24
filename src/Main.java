@@ -9,7 +9,8 @@ public class Main {
         String input = JOptionPane.showInputDialog(
                 null,
                 "Enter filename and number of bars to display",
-                "assets/cardinal_trim.wav 100"
+                "Input",
+                JOptionPane.PLAIN_MESSAGE
         );
 
         if (input == null) {
@@ -23,9 +24,9 @@ public class Main {
             return;
         }
 
-        String[] parts = splitInput(input);
+        String[] parts = input.split("\\s+");
 
-        if (parts == null) {
+        if (parts.length != 2) {
             System.out.println("Please enter exactly a filename and a number of bars.");
             return;
         }
@@ -33,12 +34,13 @@ public class Main {
         String fileName = parts[0];
         String barText = parts[1];
 
-        if (containsBlockedText(fileName) || containsBlockedText(barText)) {
+        if (hasUnsafeText(fileName) || hasUnsafeText(barText)) {
             System.out.println("Blocked unsafe input.");
             return;
         }
 
-        Path filePath = validateFilePath(fileName);
+        Path filePath = checkFile(fileName);
+
         if (filePath == null) {
             return;
         }
@@ -48,12 +50,7 @@ public class Main {
         try {
             barCount = Integer.parseInt(barText);
         } catch (NumberFormatException e) {
-            System.out.println("The number of bars must be an integer.");
-            return;
-        }
-
-        double[] samples = readSamples(filePath.toString());
-        if (samples == null) {
+            System.out.println("The number of bars must be a number.");
             return;
         }
 
@@ -62,54 +59,68 @@ public class Main {
             return;
         }
 
+        if (barCount > 1000) {
+            System.out.println("The number of bars is too large.");
+            return;
+        }
+
+        double[] samples = readSound(filePath.toString());
+
+        if (samples == null) {
+            return;
+        }
+
         if (barCount > samples.length) {
             System.out.println("The number of bars is too large for this sound file.");
             return;
         }
 
-        double[] heights = buildBars(samples, barCount);
-        playAndDraw(filePath.toString(), heights, samples.length);
+        double[] bars = makeBars(samples, barCount);
+
+        playAndDraw(fileName, samples, bars);
     }
 
-    private static String[] splitInput(String input) {
-        int splitIndex = -1;
-
-        for (int i = input.length() - 1; i >= 0; i--) {
-            if (Character.isWhitespace(input.charAt(i))) {
-                splitIndex = i;
-                break;
-            }
+    private static boolean hasUnsafeText(String text) {
+        if (text.contains("..")) {
+            return true;
         }
 
-        if (splitIndex == -1) {
-            return null;
+        if (text.contains("/")) {
+            return true;
         }
 
-        String fileName = input.substring(0, splitIndex).trim();
-        String barText = input.substring(splitIndex + 1).trim();
-
-        if (fileName.length() == 0 || barText.length() == 0) {
-            return null;
+        if (text.contains("\\")) {
+            return true;
         }
 
-        if (barText.contains(" ") || barText.contains("\t")) {
-            return null;
+        if (text.contains("|")) {
+            return true;
         }
 
-        return new String[]{fileName, barText};
+        if (text.contains("&")) {
+            return true;
+        }
+
+        if (text.contains(";")) {
+            return true;
+        }
+
+        if (text.contains(">")) {
+            return true;
+        }
+
+        if (text.contains("<")) {
+            return true;
+        }
+
+        if (text.contains("`")) {
+            return true;
+        }
+
+        return false;
     }
 
-    private static boolean containsBlockedText(String text) {
-        return text.contains("..")
-                || text.contains("|")
-                || text.contains("&")
-                || text.contains(";")
-                || text.contains(">")
-                || text.contains("<")
-                || text.contains("`");
-    }
-
-    private static Path validateFilePath(String fileName) {
+    private static Path checkFile(String fileName) {
         if (!fileName.toLowerCase().endsWith(".wav")) {
             System.out.println("Only .wav files are allowed.");
             return null;
@@ -117,6 +128,7 @@ public class Main {
 
         try {
             Path basePath = Paths.get("").toAbsolutePath().normalize();
+            Path assetsPath = basePath.resolve("assets").normalize();
             Path inputPath = Paths.get(fileName);
 
             if (inputPath.isAbsolute()) {
@@ -124,15 +136,20 @@ public class Main {
                 return null;
             }
 
-            Path fullPath = basePath.resolve(inputPath).normalize();
+            Path fullPath = assetsPath.resolve(inputPath).normalize();
 
-            if (!fullPath.startsWith(basePath)) {
-                System.out.println("Paths outside the project are not allowed.");
+            if (!fullPath.startsWith(assetsPath)) {
+                System.out.println("Paths outside the assets folder are not allowed.");
                 return null;
             }
 
-            if (!Files.exists(fullPath) || !Files.isRegularFile(fullPath)) {
+            if (!Files.exists(fullPath)) {
                 System.out.println("The file does not exist.");
+                return null;
+            }
+
+            if (!Files.isRegularFile(fullPath)) {
+                System.out.println("The input is not a regular file.");
                 return null;
             }
 
@@ -143,7 +160,7 @@ public class Main {
         }
     }
 
-    private static double[] readSamples(String fileName) {
+    private static double[] readSound(String fileName) {
         double[] samples;
 
         try {
@@ -158,13 +175,13 @@ public class Main {
             return null;
         }
 
-        for (double sample : samples) {
-            if (Double.isNaN(sample) || Double.isInfinite(sample)) {
+        for (int i = 0; i < samples.length; i++) {
+            if (Double.isNaN(samples[i]) || Double.isInfinite(samples[i])) {
                 System.out.println("The sound file contains invalid sample values.");
                 return null;
             }
 
-            if (sample < -1.0 || sample > 1.0) {
+            if (samples[i] < -1.0 || samples[i] > 1.0) {
                 System.out.println("The sound file contains invalid sample values.");
                 return null;
             }
@@ -173,9 +190,9 @@ public class Main {
         return samples;
     }
 
-    private static double[] buildBars(double[] samples, int barCount) {
+    private static double[] makeBars(double[] samples, int barCount) {
+        double[] bars = new double[barCount];
         int groupSize = samples.length / barCount;
-        double[] heights = new double[barCount];
         int index = 0;
 
         for (int i = 0; i < barCount; i++) {
@@ -183,52 +200,67 @@ public class Main {
 
             for (int j = 0; j < groupSize; j++) {
                 double value = Math.abs(samples[index]);
+
                 if (value > max) {
                     max = value;
                 }
+
                 index++;
             }
 
-            heights[i] = max;
+            bars[i] = max;
         }
 
-        return heights;
+        return bars;
     }
 
-    private static void playAndDraw(String fileName, double[] heights, int sampleCount) {
-        StdDraw.setCanvasSize(1400, 350);
-        StdDraw.setTitle("File: " + fileName);
-        StdDraw.setXscale(0, heights.length);
-        StdDraw.setYscale(-1.2, 1.2);
+    private static void playAndDraw(String fileName, double[] samples, double[] bars) {
+        StdDraw.setCanvasSize(1000, 100);
+        StdDraw.setTitle("File: assets/" + fileName);
+        StdDraw.setXscale(0, bars.length);
+        StdDraw.setYscale(-1.0, 1.0);
         StdDraw.enableDoubleBuffering();
-        StdDraw.setPenRadius(0.003);
+        StdDraw.setPenRadius(0.002);
 
-        int groupSize = sampleCount / heights.length;
-        int pauseTime = (int) ((groupSize * 1000.0) / StdAudio.SAMPLE_RATE);
+        Thread soundThread = new Thread(new Runnable() {
+            public void run() {
+                StdAudio.play(samples);
+                StdAudio.drain();
+            }
+        });
+
+        soundThread.start();
+
+        int groupSize = samples.length / bars.length;
+        int pauseTime = (int) ((groupSize * 1000.0) / 44100);
 
         if (pauseTime < 1) {
             pauseTime = 1;
         }
 
-        StdAudio.playInBackground(fileName);
-
-        for (int i = 0; i < heights.length; i++) {
-            StdDraw.clear();
-
-            StdDraw.setPenColor(StdDraw.BLACK);
-            StdDraw.text(heights.length / 2.0, 1.0, "File: " + fileName);
-            StdDraw.line(0, 0.72, heights.length, 0.72);
-
-            for (int j = 0; j <= i; j++) {
-                setBarColor(j);
-                double x = j + 0.5;
-                double height = heights[j] * 0.45;
-                StdDraw.line(x, -height, x, height);
-            }
-
-            StdDraw.show();
+        for (int i = 0; i < bars.length; i++) {
+            drawBars(fileName, bars, i);
             StdDraw.pause(pauseTime);
         }
+    }
+
+    private static void drawBars(String fileName, double[] bars, int currentBar) {
+        StdDraw.clear();
+
+        StdDraw.setPenColor(StdDraw.BLACK);
+        StdDraw.text(bars.length / 2.0, 0.85, "File: assets/" + fileName);
+        StdDraw.line(0, 0, bars.length, 0);
+
+        for (int i = 0; i <= currentBar; i++) {
+            setBarColor(i);
+
+            double x = i + 0.5;
+            double height = bars[i];
+
+            StdDraw.line(x, -height, x, height);
+        }
+
+        StdDraw.show();
     }
 
     private static void setBarColor(int index) {
